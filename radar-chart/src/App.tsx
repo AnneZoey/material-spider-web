@@ -57,7 +57,7 @@ function App() {
   const labels = ["Performance", "Pricing", "Sustainability", "Supplier"];
   const [materialData, setMaterialData] = useState<MaterialData[] | null>(null);
   const [supplierData, setSupplierData] = useState<SupplierData[] | null>(null);
-  const [currentMaterialIndex, setCurrentMaterialIndex] = useState(4);
+  const [currentMaterialIndex, setCurrentMaterialIndex] = useState(0);
   const [matchingSupplier, setMatchingSupplier] = useState<SupplierData | null>(
     null
   );
@@ -78,43 +78,58 @@ function App() {
         const materialDataSheet = workbook.getWorksheet("Material Data");
         const supplierDataSheet = workbook.getWorksheet("Supplier Data");
 
-        // Process the Excel file for Material Data
-        const materialDataJson: MaterialData[] = [];
-        if (materialDataSheet) {
-          materialDataSheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
-              const materialDataEntry = {
-                "Material Name": row.getCell(1).value as string,
-                "Supplier Name": row.getCell(2).value as string,
-                "Material Type": row.getCell(3).value as string,
-                Cost: row.getCell(4).value as number,
-                "Carbon Footprint": row.getCell(5).value as number,
-                "Performance Score": row.getCell(6).value as number,
-              };
-              materialDataJson.push(materialDataEntry);
+        // Wrap the processing code in a function that returns a promise
+        const processMaterialDataSheet = () =>
+          new Promise<MaterialData[]>((resolve) => {
+            const materialDataJson: MaterialData[] = [];
+            if (materialDataSheet) {
+              materialDataSheet.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) {
+                  const materialDataEntry = {
+                    "Material Name": row.getCell(1).value as string,
+                    "Supplier Name": row.getCell(2).value as string,
+                    "Material Type": row.getCell(3).value as string,
+                    Cost: row.getCell(4).value as number,
+                    "Carbon Footprint": row.getCell(5).value as number,
+                    "Performance Score": row.getCell(6).value as number,
+                  };
+                  materialDataJson.push(materialDataEntry);
+                }
+              });
             }
+            resolve(materialDataJson);
           });
-        }
 
-        // Process the Excel file for Supplier Data
-        const supplierDataJson: SupplierData[] = [];
-        if (supplierDataSheet) {
-          supplierDataSheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
-              const supplierDataEntry = {
-                "Supplier Name": row.getCell(1).value as string,
-                "Supplier Score": row.getCell(2).value as number,
-              };
-              supplierDataJson.push(supplierDataEntry);
+        const processSupplierDataSheet = () =>
+          new Promise<SupplierData[]>((resolve) => {
+            const supplierDataJson: SupplierData[] = [];
+            if (supplierDataSheet) {
+              supplierDataSheet.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) {
+                  const supplierDataEntry = {
+                    "Supplier Name": row.getCell(1).value as string,
+                    "Supplier Score": row.getCell(2).value as number,
+                  };
+                  supplierDataJson.push(supplierDataEntry);
+                }
+              });
             }
+            resolve(supplierDataJson);
           });
-        }
+
+        // Run the promises in parallel
+        const [materialDataJson, supplierDataJson] = await Promise.all([
+          processMaterialDataSheet(),
+          processSupplierDataSheet(),
+        ]);
 
         // Set the state
         setMaterialData(materialDataJson);
         setSupplierData(supplierDataJson);
-        console.log(materialData);
-        console.log(supplierData);
+
+        // Set the state
+        setMaterialData(materialDataJson);
+        setSupplierData(supplierDataJson);
 
         // Create supplier lookup
         const newSupplierLookup = supplierDataJson.reduce<{
@@ -148,6 +163,7 @@ function App() {
     }
   }, [currentMaterialIndex, materialData, supplierLookup]);
 
+  // Loading screen
   if (!materialData || !supplierData) {
     return (
       <div className="flex items-center justify-center min-h-screen text-4xl">
@@ -187,6 +203,10 @@ function App() {
   // Go to the last index
   const toLastIndex = () => {
     setCurrentMaterialIndex(materialData.length - 1);
+  };
+
+  const setIndex = (index: number) => {
+    setCurrentMaterialIndex(index);
   };
 
   // Data for the Radar chart
@@ -414,6 +434,7 @@ function App() {
           decreaseIndex={decreaseIndex}
           toFirstIndex={toFirstIndex}
           toLastIndex={toLastIndex}
+          setIndex={setIndex}
         />
       </Tabs>
     </>
